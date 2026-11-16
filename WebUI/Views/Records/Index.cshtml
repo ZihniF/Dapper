@@ -1,0 +1,250 @@
+@model RecordsDto
+
+@{
+    ViewData["Title"] = "Tüketim kayıtları";
+
+    var filter = Model.Records.Filter;
+    var categories = new[]
+    {
+        new LookupDto(1, "Konut"),
+        new LookupDto(2, "Ticari"),
+        new LookupDto(3, "Sanayi")
+    };
+
+    string PageUrl(int page) => Url.Action("Index", new
+    {
+        filter.Id,
+        filter.CityId,
+        filter.CategoryId,
+        From = filter.From?.ToString("yyyy-MM-dd"),
+        To = filter.To?.ToString("yyyy-MM-dd"),
+        filter.PageSize,
+        Page = page
+    })!;
+
+    string EditUrl(long id) => Url.Action("Index", new
+    {
+        editId = id,
+        filter.Id,
+        filter.CityId,
+        filter.CategoryId,
+        From = filter.From?.ToString("yyyy-MM-dd"),
+        To = filter.To?.ToString("yyyy-MM-dd"),
+        filter.PageSize,
+        filter.Page
+    }) + "#editor";
+}
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">VERİ YÖNETİMİ</span>
+        <h1>Tüketim kayıtları</h1>
+        <p>İlçe bazında günlük tüketimi inceleyin ve yönetin.</p>
+    </div>
+    <span class="status">
+        <i></i>
+        SQL Server bağlantısı aktif
+    </span>
+</div>
+
+@if (TempData["Success"] is string success)
+{
+    <div class="notice success" role="status">@success</div>
+}
+
+@if (TempData["Error"] is string error)
+{
+    <div class="notice error" role="alert">@error</div>
+}
+
+<section class="panel filter-panel">
+    <form method="get" class="filters">
+        <label>
+            Kayıt ID
+            <input type="number" name="Id" value="@filter.Id" min="1" placeholder="Örn. 1024" />
+        </label>
+
+        <label>
+            Şehir
+            <select name="CityId">
+                <option value="">Tüm şehirler</option>
+                @foreach (var city in Model.Cities)
+                {
+                    <option value="@city.Id" selected="@(filter.CityId == city.Id)">
+                        @city.Name
+                    </option>
+                }
+            </select>
+        </label>
+
+        <label>
+            Kategori
+            <select name="CategoryId">
+                <option value="">Tüm kategoriler</option>
+                @foreach (var category in categories)
+                {
+                    <option value="@category.Id" selected="@(filter.CategoryId == category.Id)">
+                        @category.Name
+                    </option>
+                }
+            </select>
+        </label>
+
+        <label>
+            Başlangıç
+            <input type="date" name="From" value="@filter.From?.ToString("yyyy-MM-dd")" />
+        </label>
+
+        <label>
+            Bitiş
+            <input type="date" name="To" value="@filter.To?.ToString("yyyy-MM-dd")" />
+        </label>
+
+        <label>
+            Sayfa boyutu
+            <select name="PageSize">
+                @foreach (var size in new[] { 25, 50, 100 })
+                {
+                    <option value="@size" selected="@(filter.PageSize == size)">
+                        @size kayıt
+                    </option>
+                }
+            </select>
+        </label>
+
+        <button class="button" type="submit">Filtrele ↗</button>
+        <a class="text-link" href="/Records">Sıfırla</a>
+    </form>
+</section>
+
+@if (Model.Selected is { } record)
+{
+    <section class="panel editor" id="editor">
+        <div>
+            <span class="eyebrow">KAYDI DÜZENLE / #@record.Id</span>
+            <h2>@record.City · @record.District</h2>
+            <p>@record.Date.ToString("dd MMMM yyyy") · @record.Category</p>
+        </div>
+
+        <form asp-action="Update" method="post" class="edit-form">
+            <input type="hidden" name="id" value="@record.Id" />
+            <input type="hidden" name="version" value="@record.Version" />
+
+            <label>
+                Tüketim (kWh)
+                <input type="text"
+                       inputmode="decimal"
+                       name="kwh"
+                       value="@record.Kwh.ToString("0.00")"
+                       required
+                       aria-describedby="decimal-help" />
+                <small id="decimal-help">Ondalık ayırıcı: virgül</small>
+            </label>
+
+            <label>
+                Abone sayısı
+                <input type="number"
+                       name="subscribers"
+                       value="@record.Subscribers"
+                       min="1"
+                       max="10000000"
+                       required />
+            </label>
+
+            <button type="submit" class="button">Değişiklikleri kaydet</button>
+            <a href="/Records" class="text-link">Kapat</a>
+        </form>
+    </section>
+}
+
+<section class="panel table-panel">
+    <div class="section-heading">
+        <div>
+            <h2>Günlük tüketim verileri</h2>
+            <p>@Model.Records.Total.ToString("N0") kayıt bulundu</p>
+        </div>
+        <span class="pill">Sunucu tarafında sayfalama</span>
+    </div>
+
+    <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Şehir / İlçe</th>
+                    <th>Tarih</th>
+                    <th>Kategori</th>
+                    <th class="number">Tüketim / kWh</th>
+                    <th class="number">Abone</th>
+                    <th>İşlemler</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Records.Items)
+                {
+                    <tr>
+                        <td class="muted">#@row.Id</td>
+                        <td>
+                            <strong>@row.City</strong>
+                            <small>@row.District</small>
+                        </td>
+                        <td>@row.Date.ToString("dd.MM.yyyy")</td>
+                        <td>
+                            <span class="category cat-@row.CategoryId">@row.Category</span>
+                        </td>
+                        <td class="number">@row.Kwh.ToString("N2")</td>
+                        <td class="number">@row.Subscribers.ToString("N0")</td>
+                        <td>
+                            <div class="row-actions">
+                                <a href="@EditUrl(row.Id)" class="edit-link">Düzenle</a>
+                                <form asp-action="Delete"
+                                      method="post"
+                                      data-confirm="Bu tüketim kaydı kalıcı olarak silinsin mi?">
+                                    <input type="hidden" name="id" value="@row.Id" />
+                                    <input type="hidden" name="version" value="@row.Version" />
+                                    <button type="submit" class="delete-link">Sil</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+
+                @if (Model.Records.Items.Count == 0)
+                {
+                    <tr>
+                        <td colspan="7" class="empty">
+                            Bu filtrelere uygun kayıt bulunamadı. Filtreleri değiştirebilirsiniz.
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <nav class="pagination" aria-label="Sayfalama">
+        <span>Sayfa @filter.Page / @Model.Records.Pages.ToString("N0")</span>
+        <div>
+            @if (filter.Page > 1)
+            {
+                <a href="@PageUrl(1)" aria-label="İlk sayfa">«</a>
+                <a href="@PageUrl(filter.Page - 1)" aria-label="Önceki sayfa">‹</a>
+            }
+
+            @for (var page = Math.Max(1, filter.Page - 2); page <= Math.Min(Model.Records.Pages, filter.Page + 2); page++)
+            {
+                <a href="@PageUrl(page)"
+                   class="@(page == filter.Page ? "current" : "")"
+                   aria-current="@(page == filter.Page ? "page" : null)">
+                    @(page)
+                </a>
+            }
+
+            @if (filter.Page < Model.Records.Pages)
+            {
+                <a href="@PageUrl(filter.Page + 1)" aria-label="Sonraki sayfa">›</a>
+                <a href="@PageUrl(Model.Records.Pages)" aria-label="Son sayfa">»</a>
+            }
+        </div>
+    </nav>
+</section>
+

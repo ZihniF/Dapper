@@ -1,0 +1,225 @@
+@model DashboardDto
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Genel bakış";
+
+    var maxCity = Model.TopCities.Count > 0
+        ? Model.TopCities.Max(x => x.Value)
+        : 1;
+
+    var chartData = new
+    {
+        months = Model.Months,
+        categories = Model.Categories
+    };
+}
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">ENERJİNİN ŞEHİRLERDEKİ İZİ</span>
+        <h1>Tüketimin büyük resmi<span class="accent">.</span></h1>
+        <p>Şehirleri, mevsimleri ve tüketim alışkanlıklarını tek ekranda keşfedin.</p>
+    </div>
+    <a href="/Records" class="button">Kayıtları incele ↗</a>
+</div>
+
+<div class="period-strip">
+    <span>
+        <i class="live-dot"></i>
+        VERİ SETİ ÖZETİ
+    </span>
+    <span>
+        @Model.FirstDate?.ToString("dd MMM yyyy") — @Model.LastDate?.ToString("dd MMM yyyy")
+    </span>
+    <span>AI ile üretilmiş sentetik veriler</span>
+</div>
+
+<section class="metrics" aria-label="Temel istatistikler">
+    <article class="metric featured">
+        <div>
+            Toplam tüketim
+            <span>ϟ</span>
+        </div>
+        <h2>
+            @((Model.TotalKwh / 1000000000).ToString("N2"))
+            <small>TWh</small>
+        </h2>
+        <p>Tüm dönemlerin toplam elektrik tüketimi</p>
+    </article>
+
+    <article class="metric">
+        <div>
+            Günlük tüketim kaydı
+            <span>▤</span>
+        </div>
+        <h2>@Model.RecordCount.ToString("N0")</h2>
+        <p>İlçe × gün × tüketim kategorisi</p>
+    </article>
+
+    <article class="metric">
+        <div>
+            Şehir kapsamı
+            <span>◎</span>
+        </div>
+        <h2>
+            @Model.Cities
+            <small>şehir</small>
+        </h2>
+        <p>100 ilçeden günlük gözlemler</p>
+    </article>
+
+    <article class="metric">
+        <div>
+            Abone başına günlük
+            <span>↗</span>
+        </div>
+        <h2>
+            @Model.AveragePerSubscriber.ToString("N2")
+            <small>kWh</small>
+        </h2>
+        <p>Toplam kWh / toplam abone-gün</p>
+    </article>
+</section>
+
+<div class="dashboard-grid">
+    <section class="panel trend">
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow">ZAMAN İÇİNDE</span>
+                <h2>Tüketim eğilimi</h2>
+                <p>Aylık toplam elektrik tüketimi · GWh</p>
+            </div>
+            <span class="pill">2016 — 2025</span>
+        </div>
+
+        <div class="chart-wrap">
+            <canvas id="trendChart"
+                    role="img"
+                    aria-label="Aylık elektrik tüketimi çizgi grafiği"></canvas>
+        </div>
+
+        <details class="chart-data">
+            <summary>Grafik verilerini tablo olarak göster</summary>
+            <div class="data-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ay</th>
+                            <th>GWh</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var month in Model.Months)
+                        {
+                            <tr>
+                                <td>@month.Label</td>
+                                <td>@((month.Value / 1000000).ToString("N2"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    </section>
+
+    <section class="panel distribution">
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow">TÜKETİM PROFİLİ</span>
+                <h2>Kategori dağılımı</h2>
+            </div>
+        </div>
+
+        <div class="donut-wrap">
+            <canvas id="categoryChart"
+                    role="img"
+                    aria-label="Kategorilere göre tüketim dağılımı"></canvas>
+            <div class="donut-center">
+                <strong>3</strong>
+                <span>kategori</span>
+            </div>
+        </div>
+
+        <div class="legend">
+            @foreach (var item in Model.Categories)
+            {
+                var percentage = Model.TotalKwh == 0
+                    ? 0
+                    : item.Value / Model.TotalKwh * 100;
+
+                <div>
+                    <span>@item.Label</span>
+                    <strong>@percentage.ToString("N1")%</strong>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="panel cities">
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow">ŞEHİR KARŞILAŞTIRMASI</span>
+                <h2>Tüketimde öne çıkanlar</h2>
+                <p>Toplam tüketime göre ilk 7 şehir</p>
+            </div>
+            <span class="pill">GWh</span>
+        </div>
+
+        <div class="city-bars">
+            @for (var i = 0; i < Model.TopCities.Count; i++)
+            {
+                var city = Model.TopCities[i];
+                var percentage = maxCity == 0 ? 0 : city.Value / maxCity * 100;
+                var width = percentage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+
+                <div class="city-row">
+                    <span class="rank">@((i + 1).ToString("00"))</span>
+                    <strong>@city.Label</strong>
+                    <div class="bar-track">
+                        <div style="width: @width%"></div>
+                    </div>
+                    <span class="number">@((city.Value / 1000000).ToString("N1"))</span>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="insight">
+        <span class="insight-icon">ϟ</span>
+        <span class="eyebrow">VERİNİN ARKASINDA</span>
+        <h2>
+            Her şehrin<br />
+            bir enerji ritmi var.
+        </h2>
+        <p>Yazın soğutma, kışın ısınma ve sanayide hafta sonu etkisi veri üretim modeline yansıtıldı.</p>
+
+        <div class="insight-rule"></div>
+
+        <div class="insight-facts">
+            <div>
+                <strong>10</strong>
+                <span>yıllık dönem</span>
+            </div>
+            <div>
+                <strong>100</strong>
+                <span>gerçek ilçe</span>
+            </div>
+        </div>
+
+        <a href="/Records">
+            Veri setini keşfet
+            <span>↗</span>
+        </a>
+        <small>Bu değerler gerçek tüketim ölçümleri değildir.</small>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/js/chart.umd.js"></script>
+    <script id="chart-data" type="application/json">
+        @Html.Raw(JsonSerializer.Serialize(chartData))
+    </script>
+    <script src="~/js/dashboard.js" asp-append-version="true"></script>
+}
+

@@ -1,0 +1,17 @@
+@{
+    ViewData["Title"] = "Veritabanı bağlantısı";
+}
+
+<section class="panel setup">
+    <span class="eyebrow">ENERGYPULSE / KURULUM</span>
+    <h1>Veritabanına ulaşılamadı.</h1>
+    <p>SQL Server bağlantısını ve EnergyPulse veritabanının kurulumunu kontrol edin.</p>
+    <p>
+        Bağlantı ayarı:
+        <code>WebUI/appsettings.json → ConnectionStrings:EnergyPulse</code>
+    </p>
+    <pre>dotnet run --project WebUI -- --initialize</pre>
+    <p>Kurulum tamamlandıktan sonra sayfayı yenileyin. Ayrıntılı hata uygulama günlüğüne yazılır.</p>
+    <a class="button" href="/">Yeniden dene</a>
+</section>
+
